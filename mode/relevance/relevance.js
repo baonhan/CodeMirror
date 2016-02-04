@@ -1,3 +1,4 @@
+/* global define */
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
@@ -11,112 +12,95 @@
 })(function(CodeMirror) {
   "use strict";
 
-  CodeMirror.defineMode("twig", function() {
-    var keywords = ["and", "as", "autoescape", "endautoescape", "block", "do", "endblock", "else", "elseif", "extends", "for", "endfor", "embed", "endembed", "filter", "endfilter", "flush", "from", "if", "endif", "in", "is", "include", "import", "not", "or", "set", "spaceless", "endspaceless", "with", "endwith", "trans", "endtrans", "blocktrans", "endblocktrans", "macro", "endmacro", "use", "verbatim", "endverbatim"],
-        operator = /^[+\-*&%=<>!?|~^]/,
-        sign = /^[:\[\(\{]/,
-        atom = ["true", "false", "null", "empty", "defined", "divisibleby", "divisible by", "even", "odd", "iterable", "sameas", "same as"],
-        number = /^(\d[+\-\*\/])?\d+(\.\d+)?/;
-
-    keywords = new RegExp("((" + keywords.join(")|(") + "))\\b");
-    atom = new RegExp("((" + atom.join(")|(") + "))\\b");
+  CodeMirror.defineMode("relevance", function() {
+      
+    var keywords = [
+        'and',
+        'as',
+        'contains',
+        'does not contain',
+        'does not end with',
+        'does not equal',
+        'does not start with',
+        'else',
+        'ends with',
+        'equals',
+        'exist',
+        'exist no',
+        'exists',
+        'exists no',
+        'false',
+        'if',
+        'is',
+        'is contained by',
+        'is equal to',
+        'is greater than',
+        'is greater than or equal to',
+        'is less than',
+        'is less than or equal to',
+        'is not',
+        'is not contained by',
+        'is not equal to',
+        'is not greater than',
+        'is not greater than or equal to',
+        'is not less than',
+        'is not less than or equal to',
+        'it',
+        'mod',
+        'nil',
+        'not',
+        'nothing',
+        'nothings',
+        'null',
+        'of',
+        'or',
+        'starts with',
+        'then',
+        'there do not exist',
+        'there does not exist',
+        'there exist',
+        'there exist no',
+        'there exists',
+        'there exists no',
+        'true',
+        'whose'
+    ];
+  
+    var operatorRegex = /^([+\/\-*&=<>]|mod\b)/i,
+        numberRegex = /^[0-9]+\b/;
+    
+    var keywordsRegex = new RegExp("^((" + keywords
+      .sort(function(a, b) {return b.length - a.length})
+      .join(')|(')
+      .replace(/\s+/g, '\\s+((a|an|the)\\s+)*')
+      + "))\\b", 'i');
+      
+    var phraseRegex = new RegExp("^[a-zA-Z][a-zA-Z0-9_]*\\b");
 
     function tokenBase (stream, state) {
       var ch = stream.peek();
-
-      //Comment
-      if (state.incomment) {
-        if (!stream.skipTo("#}")) {
-          stream.skipToEnd();
-        } else {
-          stream.eatWhile(/\#|}/);
-          state.incomment = false;
+      
+      if (state.instring) {
+        if (ch == state.instring) {
+          state.instring = false;
         }
-        return "comment";
-      //Tag
-      } else if (state.intag) {
-        //After operator
-        if (state.operator) {
-          state.operator = false;
-          if (stream.match(atom)) {
-            return "atom";
-          }
-          if (stream.match(number)) {
-            return "number";
-          }
-        }
-        //After sign
-        if (state.sign) {
-          state.sign = false;
-          if (stream.match(atom)) {
-            return "atom";
-          }
-          if (stream.match(number)) {
-            return "number";
-          }
-        }
-
-        if (state.instring) {
-          if (ch == state.instring) {
-            state.instring = false;
-          }
-          stream.next();
-          return "string";
-        } else if (ch == "'" || ch == '"') {
-          state.instring = ch;
-          stream.next();
-          return "string";
-        } else if (stream.match(state.intag + "}") || stream.eat("-") && stream.match(state.intag + "}")) {
-          state.intag = false;
-          return "tag";
-        } else if (stream.match(operator)) {
-          state.operator = true;
-          return "operator";
-        } else if (stream.match(sign)) {
-          state.sign = true;
-        } else {
-          if (stream.eat(" ") || stream.sol()) {
-            if (stream.match(keywords)) {
-              return "keyword";
-            }
-            if (stream.match(atom)) {
-              return "atom";
-            }
-            if (stream.match(number)) {
-              return "number";
-            }
-            if (stream.sol()) {
-              stream.next();
-            }
-          } else {
-            stream.next();
-          }
-
-        }
-        return "variable";
-      } else if (stream.eat("{")) {
-        if (ch = stream.eat("#")) {
-          state.incomment = true;
-          if (!stream.skipTo("#}")) {
-            stream.skipToEnd();
-          } else {
-            stream.eatWhile(/\#|}/);
-            state.incomment = false;
-          }
-          return "comment";
-        //Open tag
-        } else if (ch = stream.eat(/\{|%/)) {
-          //Cache close tag
-          state.intag = ch;
-          if (ch == "{") {
-            state.intag = "}";
-          }
-          stream.eat("-");
-          return "tag";
-        }
+        stream.next();
+        return "string";
+      } else if (ch == '"') {
+        state.instring = ch;
+        stream.next();
+        return "string";
+      } else if (stream.match(numberRegex)) {
+          return "number";
+      } else if (stream.match(operatorRegex)) {
+        return "operator";
+      } else if (stream.match(keywordsRegex)) {
+        return "keyword";
+      } else if (stream.match(phraseRegex)) {
+        return "property";
       }
       stream.next();
-    };
+    }
 
     return {
       startState: function () {
@@ -128,5 +112,5 @@
     };
   });
 
-  CodeMirror.defineMIME("text/x-twig", "twig");
+  CodeMirror.defineMIME("text/relevance", "relevance");
 });
